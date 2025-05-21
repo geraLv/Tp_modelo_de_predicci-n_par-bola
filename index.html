@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Predictor de raíces</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  </head>
+  <style>
+    /* Puedes agregar estilos aquí */
+  </style>
+  <body>
+    <h2>Predicción de raíces para y = 2x² - 3x + 1</h2>
+
+    <div class="entrada-container">
+      <input
+        type="number"
+        id="entradaY"
+        step="0.01"
+        placeholder="Ingrese un valor de y"
+        disabled
+      />
+      <button id="botonCalcular" onclick="calcularRaicesPredichas()" disabled>
+        Calcular raíces
+      </button>
+    </div>
+
+    <p id="resultadoRaices"></p>
+    <p id="estadoModelo"></p>
+
+    <script>
+      function obtenerRaices(valorY) {
+        const coeficienteA = 2;
+        const coeficienteB = -3;
+        const coeficienteC = 1 - valorY;
+        const discriminanteValor =
+          coeficienteB * coeficienteB - 4 * coeficienteA * coeficienteC;
+
+        if (discriminanteValor < 0) return [0, 0];
+
+        const raizDiscriminante = Math.sqrt(discriminanteValor);
+        const raiz1 = (-coeficienteB + raizDiscriminante) / (2 * coeficienteA);
+        const raiz2 = (-coeficienteB - raizDiscriminante) / (2 * coeficienteA);
+        return [raiz1, raiz2];
+      }
+
+      const valoresY = [];
+      const valoresX = [];
+
+      for (let valorY = -10; valorY <= 30; valorY += 0.5) {
+        const raices = obtenerRaices(valorY);
+        valoresY.push(valorY);
+        valoresX.push(raices);
+      }
+
+      const tensorEntradas = tf.tensor2d(valoresY, [valoresY.length, 1]);
+      const tensorSalidas = tf.tensor2d(valoresX);
+
+      const modeloPredecir = tf.sequential();
+      modeloPredecir.add(
+        tf.layers.dense({ inputShape: [1], units: 10, activation: "relu" })
+      );
+      modeloPredecir.add(tf.layers.dense({ units: 2 }));
+      modeloPredecir.compile({ optimizer: "adam", loss: "meanSquaredError" });
+
+      const entradaY = document.getElementById("entradaY");
+      const botonCalcular = document.getElementById("botonCalcular");
+      const estadoModelo = document.getElementById("estadoModelo");
+      const resultadoRaices = document.getElementById("resultadoRaices");
+
+      async function entrenarModelo() {
+        estadoModelo.innerText = "Entrenando modelo, espere...";
+        entradaY.disabled = true;
+        botonCalcular.disabled = true;
+
+        for (let epoca = 0; epoca <= 1000; epoca += 200) {
+          const resultado = await modeloPredecir.fit(
+            tensorEntradas,
+            tensorSalidas,
+            {
+              epochs: 200,
+              shuffle: true,
+            }
+          );
+          estadoModelo.innerText = `Época ${
+            epoca + 200
+          }: pérdida = ${resultado.history.loss[0].toFixed(6)}`;
+        }
+
+        estadoModelo.innerText += "\nEntrenamiento completado.";
+        entradaY.disabled = false;
+        botonCalcular.disabled = false;
+      }
+
+      entrenarModelo();
+
+      async function calcularRaicesPredichas() {
+        const valorY = parseFloat(entradaY.value);
+        if (isNaN(valorY)) {
+          alert("Por favor, ingrese un número válido para y.");
+          return;
+        }
+
+        const tensorEntrada = tf.tensor2d([[valorY]]);
+        const prediccionRaices = modeloPredecir.predict(tensorEntrada);
+        const datos = await prediccionRaices.array();
+        const x1 = datos[0][0];
+        const x2 = datos[0][1];
+
+        if (Math.abs(x1) < 1e-4 && Math.abs(x2) < 1e-4) {
+          resultadoRaices.innerText = `No hay raíces reales para y = ${valorY}}`;
+        } else {
+          resultadoRaices.innerText = `Para y = ${valorY}, las raíces predichas son:\n x₁ ≈ ${x1.toFixed(
+            4
+          )}, x₂ ≈ ${x2.toFixed(4)}`;
+        }
+      }
+    </script>
+  </body>
+</html>
